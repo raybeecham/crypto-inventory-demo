@@ -1,6 +1,5 @@
 import java
 
-/** JCA/JCE types to inventory */
 predicate isCryptoType(RefType t) {
   t.hasQualifiedName("java.security", "MessageDigest") or
   t.hasQualifiedName("javax.crypto", "Cipher") or
@@ -12,11 +11,6 @@ predicate isCryptoType(RefType t) {
   t.hasQualifiedName("javax.net.ssl", "SSLContext")
 }
 
-/**
- * Single-select query:
- *  - Rows where Call=getInstance list the requested algorithm string
- *  - Rows where Call=initialize list the first argument (e.g., RSA key size)
- */
 from MethodAccess m, string api, string callName, string key, string value
 where
   (
