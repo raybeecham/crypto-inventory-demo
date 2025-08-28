@@ -54,9 +54,18 @@ jobs:
             echo "Could not locate CodeQL Java database"; exit 1
           fi
           echo "Using DB at: $DB_DIR"
-          "$CODEQL" query run queries/crypto-inventory.ql --database "$DB_DIR" --output results.bqrs
+
+          # Run our query as a pack (so 'import java' resolves)
+          "$CODEQL" query run queries/crypto-inventory.ql \
+            --database "$DB_DIR" \
+            --additional-packs ./queries \
+            --output results.bqrs
+
           "$CODEQL" bqrs decode results.bqrs --format=csv > inventory.csv
+
+          # Quick weak-crypto filter (optional)
           egrep -i 'MD5|SHA-1|SHA1withRSA|DES|3DES|RC4|AES/ECB|TLSv1(?!\.)|SHA1PRNG|RSA.*,Arg0,1[0-9]{3}' inventory.csv || true > legacy_flags.txt
+
 
 
       - name: Upload inventory artifact
