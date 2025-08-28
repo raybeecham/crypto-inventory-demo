@@ -33,7 +33,6 @@ jobs:
         with:
           languages: java 
 
-      # We just compile the tiny demo so the extractor can run
       - name: Build demo manually
         run: |
           mkdir -p build
@@ -43,6 +42,13 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:java"
+
+      - name: Install query pack deps
+        shell: bash
+        run: |
+          set -euo pipefail
+          CODEQL="${{ steps.init-codeql.outputs.codeql-path }}"
+          "$CODEQL" pack install ./queries
 
       - name: Export CSV inventory
         shell: bash
