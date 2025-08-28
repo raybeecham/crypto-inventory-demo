@@ -28,6 +28,7 @@ jobs:
           java-version: '17'
 
       - name: Initialize CodeQL
+        id: init-codeql
         uses: github/codeql-action/init@v3
         with:
           languages: java
@@ -38,7 +39,6 @@ jobs:
           mkdir -p build
           javac -d build demo/src/Demo.java
 
-
       - name: Analyze
         uses: github/codeql-action/analyze@v3
         with:
@@ -48,13 +48,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          CODEQL="${{ steps.init-codeql.outputs.codeql-path }}"
           DB_DIR="$(find "$RUNNER_TEMP/codeql_databases" -maxdepth 2 -type d -name java -print -quit)"
           if [ -z "${DB_DIR:-}" ]; then
             echo "Could not locate CodeQL Java database"; exit 1
           fi
-          codeql query run queries/crypto-inventory.ql --database "$DB_DIR" --output results.bqrs
-          codeql bqrs decode results.bqrs --format=csv > inventory.csv
+          echo "Using DB at: $DB_DIR"
+          "$CODEQL" query run queries/crypto-inventory.ql --database "$DB_DIR" --output results.bqrs
+          "$CODEQL" bqrs decode results.bqrs --format=csv > inventory.csv
           egrep -i 'MD5|SHA-1|SHA1withRSA|DES|3DES|RC4|AES/ECB|TLSv1(?!\.)|SHA1PRNG|RSA.*,Arg0,1[0-9]{3}' inventory.csv || true > legacy_flags.txt
+
 
       - name: Upload inventory artifact
         uses: actions/upload-artifact@v4
