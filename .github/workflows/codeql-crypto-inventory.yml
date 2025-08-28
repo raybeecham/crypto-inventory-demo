@@ -33,8 +33,11 @@ jobs:
           languages: java
           queries: ./queries
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+      - name: Build demo manually
+        run: |
+          mkdir -p build
+          javac -d build demo/src/Demo.java
+
 
       - name: Analyze
         uses: github/codeql-action/analyze@v3
