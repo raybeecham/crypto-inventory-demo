@@ -30,7 +30,10 @@ jobs:
       - name: Initialize CodeQL
         id: init-codeql
         uses: github/codeql-action/init@v3
+        with:
+          languages: java 
 
+      # We just compile the tiny demo so the extractor can run
       - name: Build demo manually
         run: |
           mkdir -p build
@@ -46,13 +49,15 @@ jobs:
         run: |
           set -euo pipefail
           CODEQL="${{ steps.init-codeql.outputs.codeql-path }}"
-          DB_DIR="$(find "$RUNNER_TEMP/codeql_databases" -maxdepth 2 -type d -name java -print -quit)"
+
+          # Find the database directory created by the actions
+          DB_DIR="$(find "$RUNNER_TEMP/codeql_databases" -type f -name codeql-database.yml -print -quit | xargs dirname || true)"
           if [ -z "${DB_DIR:-}" ]; then
-            echo "Could not locate CodeQL Java database"; exit 1
+            echo "Could not locate CodeQL Java database"; ls -R "$RUNNER_TEMP" || true; exit 1
           fi
           echo "Using DB at: $DB_DIR"
 
-          # Run our query as a pack (so 'import java' resolves)
+          # Run our query as a pack so 'import java' resolves
           "$CODEQL" query run queries/crypto-inventory.ql \
             --database "$DB_DIR" \
             --additional-packs ./queries \
@@ -62,8 +67,6 @@ jobs:
 
           # Quick weak-crypto filter (optional)
           egrep -i 'MD5|SHA-1|SHA1withRSA|DES|3DES|RC4|AES/ECB|TLSv1(?!\.)|SHA1PRNG|RSA.*,Arg0,1[0-9]{3}' inventory.csv || true > legacy_flags.txt
-
-
 
       - name: Upload inventory artifact
         uses: actions/upload-artifact@v4
