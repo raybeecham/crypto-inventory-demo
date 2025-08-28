@@ -1,8 +1,9 @@
-// Bring in the Java libraries + the modules that define MethodAccess, Expr, RefType
 import java
+import semmle.code.java.Expressions as E
+import semmle.code.java.Types as T
 
 /** JCA/JCE types to inventory */
-predicate isCryptoType(RefType t) {
+predicate isCryptoType(T.RefType t) {
   t.hasQualifiedName("java.security", "MessageDigest") or
   t.hasQualifiedName("javax.crypto", "Cipher") or
   t.hasQualifiedName("java.security", "Signature") or
@@ -18,9 +19,8 @@ predicate isCryptoType(RefType t) {
  *  - Rows where Call=getInstance list the requested algorithm string
  *  - Rows where Call=initialize list the first argument (e.g., RSA key size)
  */
-from MethodAccess m, string api, string callName, string key, string value
+from E.MethodAccess m, string api, string callName, string key, string value
 where
-  // Case 1: inventory getInstance("...") on crypto classes
   (
     m.getMethod().hasName("getInstance") and
     isCryptoType(m.getMethod().getDeclaringType()) and
@@ -30,7 +30,6 @@ where
     key = "Algorithm"
   )
   or
-  // Case 2: note KeyPairGenerator.initialize(...) arg0 (often key size)
   (
     m.getMethod().getDeclaringType().hasQualifiedName("java.security","KeyPairGenerator") and
     m.getMethod().getName() = "initialize" and
