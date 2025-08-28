@@ -1,9 +1,7 @@
 import java
-import semmle.code.java.Expressions as E
-import semmle.code.java.Types as T
 
 /** JCA/JCE types to inventory */
-predicate isCryptoType(T.RefType t) {
+predicate isCryptoType(RefType t) {
   t.hasQualifiedName("java.security", "MessageDigest") or
   t.hasQualifiedName("javax.crypto", "Cipher") or
   t.hasQualifiedName("java.security", "Signature") or
@@ -19,7 +17,7 @@ predicate isCryptoType(T.RefType t) {
  *  - Rows where Call=getInstance list the requested algorithm string
  *  - Rows where Call=initialize list the first argument (e.g., RSA key size)
  */
-from E.MethodAccess m, string api, string callName, string key, string value
+from MethodAccess m, string api, string callName, string key, string value
 where
   (
     m.getMethod().hasName("getInstance") and
