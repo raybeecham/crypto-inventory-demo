@@ -1,7 +1,5 @@
 // Bring in the Java libraries + the modules that define MethodAccess, Expr, RefType
 import java
-import semmle.code.java.Expressions
-import semmle.code.java.Types
 
 /** JCA/JCE types to inventory */
 predicate isCryptoType(RefType t) {
