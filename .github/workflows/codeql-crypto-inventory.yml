@@ -48,7 +48,8 @@ jobs:
         run: |
           set -euo pipefail
           CODEQL="${{ steps.init-codeql.outputs.codeql-path }}"
-          "$CODEQL" pack install ./queries
+          rm -f queries/codeql-pack.lock.yml
+          "$CODEQL" pack install ./queries --no-strict-mode
 
       - name: Export CSV inventory
         shell: bash
