@@ -1,5 +1,6 @@
 import java
 
+/** JCA/JCE types to inventory */
 predicate isCryptoType(RefType t) {
   t.hasQualifiedName("java.security", "MessageDigest") or
   t.hasQualifiedName("javax.crypto", "Cipher") or
@@ -11,22 +12,31 @@ predicate isCryptoType(RefType t) {
   t.hasQualifiedName("javax.net.ssl", "SSLContext")
 }
 
-from MethodAccess call, RefType owner, Expr arg, string alg
-where call.getMethod().hasName("getInstance") and
-      owner = call.getMethod().getDeclaringType() and
-      isCryptoType(owner) and
-      arg = call.getArgument(0) and
-      alg = arg.getStringValue()
-select call,
-  "API", owner.getQualifiedName(),
-  "Call", "getInstance",
-  "Algorithm", alg
-
-from MethodAccess init
-where init.getMethod().getDeclaringType().hasQualifiedName("java.security", "KeyPairGenerator") and
-      init.getMethod().getName() = "initialize" and
-      init.getNumberOfArguments() >= 1
-select init,
-  "API", "java.security.KeyPairGenerator",
-  "Call", "initialize",
-  "Arg0", init.getArgument(0).toString()
+/**
+ * Single-select query:
+ *  - Rows where Call=getInstance list the requested algorithm string
+ *  - Rows where Call=initialize list the first argument (e.g., RSA key size)
+ */
+from MethodAccess m, string api, string callName, string key, string value
+where
+  // Case 1: inventory getInstance("...") on crypto classes
+  (
+    m.getMethod().hasName("getInstance") and
+    isCryptoType(m.getMethod().getDeclaringType()) and
+    exists(string alg | m.getArgument(0).getStringValue() = alg and value = alg) and
+    api = m.getMethod().getDeclaringType().getQualifiedName() and
+    callName = "getInstance" and
+    key = "Algorithm"
+  )
+  or
+  // Case 2: note KeyPairGenerator.initialize(...) arg0 (often key size)
+  (
+    m.getMethod().getDeclaringType().hasQualifiedName("java.security","KeyPairGenerator") and
+    m.getMethod().getName() = "initialize" and
+    m.getNumberOfArguments() >= 1 and
+    api = "java.security.KeyPairGenerator" and
+    callName = "initialize" and
+    key = "Arg0" and
+    value = m.getArgument(0).toString()
+  )
+select m, "API", api, "Call", callName, key, value
