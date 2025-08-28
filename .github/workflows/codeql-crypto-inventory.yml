@@ -31,8 +31,6 @@ jobs:
         id: init-codeql
         uses: github/codeql-action/init@v3
         with:
-          languages: java
-          queries: ./queries
 
       - name: Build demo manually
         run: |
