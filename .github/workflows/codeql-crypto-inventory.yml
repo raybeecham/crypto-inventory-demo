@@ -27,58 +27,53 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # Initialize CodeQL (creates the DB during Analyze)
       - name: Initialize CodeQL
         id: init-codeql
         uses: github/codeql-action/init@v3
         with:
           languages: java
 
-      # Compile the tiny demo so extraction succeeds
       - name: Build demo manually
         run: |
           mkdir -p build
           javac -d build demo/src/Demo.java
 
-      # Optional: run default suite so you also get SARIF in Security tab
       - name: Analyze
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:java"
 
-      # --- CUSTOM INVENTORY: build & run our query pack ---
-
-      # Install deps and build the query pack so imports resolve
-      - name: Install & build query pack
+      - name: Install query pack deps
         shell: bash
         run: |
           set -euo pipefail
           CODEQL="${{ steps.init-codeql.outputs.codeql-path }}"
-          # Clean any stale lock
+          # clean any stale lock
           rm -f queries/codeql-pack.lock.yml || true
-          # Install dependencies declared in qlpack.yml (codeql/java-all)
+          # install deps (codeql/java-all) into ~/.codeql/packages
           "$CODEQL" pack install ./queries --no-strict-mode
-          # Build the pack (creates ./queries/dist/*.tgz and fully resolves imports)
-          "$CODEQL" pack build ./queries
 
-      # Run our query against the DB and export CSV
       - name: Export CSV inventory
         shell: bash
         run: |
           set -euo pipefail
           CODEQL="${{ steps.init-codeql.outputs.codeql-path }}"
 
-          # Locate the DB produced by the CodeQL action
+          # Locate the DB created by the action
           DB_DIR="$(find "$RUNNER_TEMP/codeql_databases" -type f -name codeql-database.yml -print -quit | xargs dirname || true)"
           if [ -z "${DB_DIR:-}" ]; then
             echo "Could not locate CodeQL Java database"; ls -R "$RUNNER_TEMP" || true; exit 1
           fi
           echo "Using DB at: $DB_DIR"
 
-          # Use the pack's lockfile + dist to resolve imports reliably
-          SEARCH_PATH="./queries:$(dirname "$CODEQL")/../qlpacks"
+          # Build a robust search path:
+          #  1) CLI's built-in qlpacks, 2) user cache where pack install puts deps, 3) our local queries pack
+          QLPACKS_DIR="$(dirname "$CODEQL")/../qlpacks"
+          USER_PACKS="$HOME/.codeql/packages"
+          SEARCH_PATH="$QLPACKS_DIR:$USER_PACKS:./queries"
           echo "Search path: $SEARCH_PATH"
 
+          # Run the custom query (loose .ql) with explicit search path
           "$CODEQL" query run queries/crypto-inventory.ql \
             --database "$DB_DIR" \
             --search-path "$SEARCH_PATH" \
@@ -86,8 +81,6 @@ jobs:
             --output results.bqrs
 
           "$CODEQL" bqrs decode results.bqrs --format=csv > inventory.csv
-
-          # Optional quick weak-crypto matches
           egrep -i 'MD5|SHA-1|SHA1withRSA|DES|3DES|RC4|AES/ECB|TLSv1(?!\.)|SHA1PRNG|RSA.*,Arg0,1[0-9]{3}' inventory.csv || true > legacy_flags.txt
 
       - name: Upload inventory artifact
