@@ -1,4 +1,6 @@
 name: crypto-inventory
 version: 0.0.1
 libraryPathDependencies:
+  - codeql/java-all
+dependencies:
   codeql/java-all: "*"
