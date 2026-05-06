@@ -22,19 +22,23 @@ private predicate getInstanceRecord(MethodCall m, string api, string raw, int ke
   m.getMethod().hasName("getInstance") and
   isCryptoGetInstanceType(m.getMethod().getDeclaringType()) and
   m.getNumArgument() >= 1 and
-  m.getArgument(0).getStringValue() = raw and
+  exists(StringLiteral alg |
+    alg = m.getArgument(0) and
+    raw = alg.getValue()
+  ) and
   api = m.getMethod().getDeclaringType().getQualifiedName() and
   keySize = -1
 }
 
 private predicate receiverAlgorithm(MethodCall init, string raw) {
-  exists(VarAccess receiver, Variable v, MethodCall create |
+  exists(VarAccess receiver, Variable v, MethodCall create, StringLiteral alg |
     receiver = init.getQualifier() and
     receiver.getVariable() = v and
     create = v.getAnAssignedValue() and
     create.getMethod().hasName("getInstance") and
     isCryptoGetInstanceType(create.getMethod().getDeclaringType()) and
-    create.getArgument(0).getStringValue() = raw
+    alg = create.getArgument(0) and
+    raw = alg.getValue()
   )
 }
 
@@ -76,6 +80,7 @@ private predicate cryptoRecord(MethodCall m, string api, string raw, int keySize
   unknownSizeInitializeRecord(m, api, raw, keySize)
 }
 
+bindingset[api, raw]
 private predicate knownAlgorithm(string api, string raw, string algorithm) {
   api = "javax.net.ssl.SSLContext" and algorithm = ""
   or
@@ -129,11 +134,13 @@ private predicate knownAlgorithm(string api, string raw, string algorithm) {
   )
 }
 
+bindingset[api, raw]
 private predicate algorithmValue(string api, string raw, string algorithm) {
   knownAlgorithm(api, raw, algorithm) or
   not exists(string a | knownAlgorithm(api, raw, a)) and algorithm = raw
 }
 
+bindingset[raw]
 private predicate extractedMode(string raw, string mode) {
   exists(string upper |
     upper = raw.toUpperCase() and
@@ -153,17 +160,20 @@ private predicate extractedMode(string raw, string mode) {
   )
 }
 
+bindingset[raw]
 private predicate modeValue(string raw, string mode) {
   extractedMode(raw, mode) or
   not exists(string m | extractedMode(raw, m)) and mode = ""
 }
 
+bindingset[api, raw]
 private predicate protocolValue(string api, string raw, string protocol) {
   api = "javax.net.ssl.SSLContext" and protocol = raw
   or
   api != "javax.net.ssl.SSLContext" and protocol = ""
 }
 
+bindingset[raw]
 private predicate weakHash(string raw) {
   exists(string upper |
     upper = raw.toUpperCase() and
@@ -171,6 +181,7 @@ private predicate weakHash(string raw) {
   )
 }
 
+bindingset[raw]
 private predicate weakSignature(string raw) {
   exists(string upper |
     upper = raw.toUpperCase() and
@@ -182,6 +193,7 @@ private predicate weakSignature(string raw) {
   )
 }
 
+bindingset[raw, algorithm]
 private predicate deprecatedCipher(string raw, string algorithm) {
   exists(string upper |
     upper = raw.toUpperCase() and
@@ -198,6 +210,7 @@ private predicate deprecatedCipher(string raw, string algorithm) {
   )
 }
 
+bindingset[protocol]
 private predicate tls10Or11(string protocol) {
   exists(string upper |
     upper = protocol.toUpperCase() and
@@ -205,10 +218,12 @@ private predicate tls10Or11(string protocol) {
   )
 }
 
+bindingset[protocol]
 private predicate tls12(string protocol) {
   protocol.toUpperCase() = "TLSV1.2"
 }
 
+bindingset[raw, algorithm]
 private predicate asymmetricAlgorithm(string raw, string algorithm) {
   exists(string upper |
     upper = raw.toUpperCase() and
@@ -226,6 +241,7 @@ private predicate asymmetricAlgorithm(string raw, string algorithm) {
   )
 }
 
+bindingset[api, raw, algorithm, keySize]
 private predicate weakAsymmetricKeySize(string api, string raw, string algorithm, int keySize) {
   keySize > -1 and
   (
@@ -243,10 +259,12 @@ private predicate weakAsymmetricKeySize(string api, string raw, string algorithm
   )
 }
 
+bindingset[api, raw, algorithm, keySize]
 private predicate criticalRisk(string api, string raw, string algorithm, int keySize) {
   weakAsymmetricKeySize(api, raw, algorithm, keySize)
 }
 
+bindingset[raw, algorithm, mode, protocol]
 private predicate highRisk(string raw, string algorithm, string mode, string protocol) {
   weakHash(raw) or
   weakSignature(raw) or
@@ -255,12 +273,14 @@ private predicate highRisk(string raw, string algorithm, string mode, string pro
   tls10Or11(protocol)
 }
 
+bindingset[raw, algorithm, protocol]
 private predicate mediumRisk(string raw, string algorithm, string protocol) {
   tls12(protocol) or
   algorithm = "SHA1PRNG" or
   asymmetricAlgorithm(raw, algorithm)
 }
 
+bindingset[api, raw, algorithm, mode, keySize, protocol]
 private predicate riskClassification(
   string api, string raw, string algorithm, string mode, int keySize, string protocol, string riskLevel, string riskReason
 ) {
@@ -311,6 +331,7 @@ private predicate pqcSafeForNow(string algorithm) {
   algorithm = "SHA-512"
 }
 
+bindingset[raw, algorithm]
 private predicate pqcStatusValue(string raw, string algorithm, string pqcStatus) {
   asymmetricAlgorithm(raw, algorithm) and pqcStatus = "NOT_SAFE"
   or
@@ -319,6 +340,7 @@ private predicate pqcStatusValue(string raw, string algorithm, string pqcStatus)
   not asymmetricAlgorithm(raw, algorithm) and not pqcSafeForNow(algorithm) and pqcStatus = "UNKNOWN"
 }
 
+bindingset[api, raw, algorithm]
 private predicate harvestNowDecryptLaterRiskValue(string api, string raw, string algorithm, string risk) {
   (
     api = "javax.net.ssl.SSLContext" or
