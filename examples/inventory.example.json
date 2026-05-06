@@ -109,10 +109,10 @@
     "api": "java.security.KeyPairGenerator",
     "algorithm": "RSA",
     "mode": null,
-    "key_size": 1024,
+    "key_size": 3072,
     "protocol": null,
-    "risk_level": "CRITICAL",
-    "risk_reason": "Weak key size",
+    "risk_level": "MEDIUM",
+    "risk_reason": "PQC vulnerable asymmetric crypto",
     "pqc_status": "NOT_SAFE",
     "harvest_now_decrypt_later_risk": true
   },

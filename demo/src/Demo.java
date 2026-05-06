@@ -14,7 +14,7 @@ public class Demo {
     Cipher aesEcb = Cipher.getInstance("AES/ECB/NoPadding");
     Cipher aesGcm = Cipher.getInstance("AES/GCM/NoPadding");
     KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-    kpg.initialize(1024);
+    kpg.initialize(3072);
     SecureRandom sr1 = SecureRandom.getInstance("SHA1PRNG");
     SecureRandom sr2 = new SecureRandom();
     SSLContext tls = SSLContext.getInstance("TLSv1.2");
