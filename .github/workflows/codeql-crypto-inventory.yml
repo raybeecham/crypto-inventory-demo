@@ -9,7 +9,7 @@ on:
 
 jobs:
   analyze:
-    name: CodeQL (Java) + CSV inventory
+    name: CodeQL (Java) + CBOM inventory
     runs-on: ubuntu-latest
 
     permissions:
@@ -53,7 +53,7 @@ jobs:
           # install deps (codeql/java-all) into ~/.codeql/packages
           "$CODEQL" pack install ./queries --no-strict-mode
 
-      - name: Export CSV inventory
+      - name: Export JSON CBOM inventory
         shell: bash
         run: |
           set -euo pipefail
@@ -80,13 +80,29 @@ jobs:
             --additional-packs ./queries \
             --output results.bqrs
 
-          "$CODEQL" bqrs decode results.bqrs --format=csv > inventory.csv
-          egrep -i 'MD5|SHA-1|SHA1withRSA|DES|3DES|RC4|AES/ECB|TLSv1(?!\.)|SHA1PRNG|RSA.*,Arg0,1[0-9]{3}' inventory.csv || true > legacy_flags.txt
+          "$CODEQL" bqrs decode \
+            --format=json \
+            --entities=string \
+            --output codeql-results.json \
+            -- \
+            results.bqrs
+
+          python3 scripts/cbom.py from-bqrs-json codeql-results.json \
+            --output inventory.json \
+            --summary summary.txt
 
       - name: Upload inventory artifact
         uses: actions/upload-artifact@v4
         with:
           name: crypto-inventory
           path: |
-            inventory.csv
-            legacy_flags.txt
+            inventory.json
+            summary.txt
+
+      - name: Fail on CRITICAL crypto findings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/cbom.py summarize inventory.json \
+            --summary summary.txt \
+            --fail-on-critical
