@@ -9,7 +9,7 @@ on:
 
 jobs:
   analyze:
-    name: CodeQL (Java) + CBOM inventory
+    name: Crypto CBOM inventory
     runs-on: ubuntu-latest
 
     permissions:
@@ -51,6 +51,7 @@ jobs:
           CODEQL="${{ steps.init-codeql.outputs.codeql-path }}"
           # install deps (codeql/java-all) into ~/.codeql/packages
           "$CODEQL" pack install ./queries --no-strict-mode
+          "$CODEQL" pack install ./queries-python --no-strict-mode
 
       - name: Export JSON CBOM inventory
         shell: bash
@@ -69,24 +70,57 @@ jobs:
           #  1) CLI's built-in qlpacks, 2) user cache where pack install puts deps, 3) our local queries pack
           QLPACKS_DIR="$(dirname "$CODEQL")/../qlpacks"
           USER_PACKS="$HOME/.codeql/packages"
-          SEARCH_PATH="$QLPACKS_DIR:$USER_PACKS:./queries"
+          SEARCH_PATH="$QLPACKS_DIR:$USER_PACKS:./queries:./queries-python"
           echo "Search path: $SEARCH_PATH"
 
-          # Run the custom query (loose .ql) with explicit search path
+          # Run the custom Java query (loose .ql) with explicit search path
           "$CODEQL" query run queries/crypto-inventory.ql \
             --database "$DB_DIR" \
             --search-path "$SEARCH_PATH" \
             --additional-packs ./queries \
-            --output results.bqrs
+            --output java-results.bqrs
 
           "$CODEQL" bqrs decode \
             --format=json \
             --entities=string \
-            --output codeql-results.json \
+            --output java-codeql-results.json \
             -- \
-            results.bqrs
+            java-results.bqrs
 
-          python3 scripts/cbom.py from-bqrs-json codeql-results.json \
+          python3 scripts/cbom.py from-bqrs-json java-codeql-results.json \
+            --output inventory-java.json \
+            --summary summary-java.txt
+
+          "$CODEQL" database create python-db \
+            --language=python \
+            --source-root . \
+            --overwrite
+
+          "$CODEQL" query run queries-python/python-crypto-inventory.ql \
+            --database python-db \
+            --search-path "$SEARCH_PATH" \
+            --additional-packs ./queries-python \
+            --output python-results.bqrs
+
+          "$CODEQL" bqrs decode \
+            --format=json \
+            --entities=string \
+            --output python-codeql-results.json \
+            -- \
+            python-results.bqrs
+
+          python3 scripts/cbom.py from-bqrs-json python-codeql-results.json \
+            --output inventory-python.json \
+            --summary summary-python.txt
+
+          python3 scripts/scan_tls_config.py . --output inventory-config.json
+          python3 scripts/scan_pcap.py demo/pcap --output inventory-pcap.json
+
+          python3 scripts/cbom.py combine \
+            inventory-java.json \
+            inventory-python.json \
+            inventory-config.json \
+            inventory-pcap.json \
             --output inventory.json \
             --summary summary.txt
 

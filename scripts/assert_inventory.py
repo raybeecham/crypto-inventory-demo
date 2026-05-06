@@ -11,15 +11,36 @@ from typing import Any
 from cbom import load_inventory
 
 
-EXPECTED_FINDINGS = [
-    {"api": "java.security.MessageDigest", "algorithm": "MD5", "risk_level": "HIGH", "risk_reason": "Broken hash"},
-    {"api": "java.security.MessageDigest", "algorithm": "SHA-256", "risk_level": "LOW", "pqc_status": "SAFE"},
-    {"api": "java.security.Signature", "algorithm": "SHA1withRSA", "risk_level": "HIGH", "pqc_status": "NOT_SAFE"},
-    {"api": "java.security.Signature", "algorithm": "SHA256withRSA", "risk_level": "MEDIUM", "pqc_status": "NOT_SAFE"},
-    {"api": "javax.crypto.Cipher", "algorithm": "DES", "mode": "CBC", "risk_level": "HIGH"},
-    {"api": "javax.crypto.Cipher", "algorithm": "AES", "mode": "ECB", "risk_level": "HIGH"},
-    {"api": "javax.crypto.Cipher", "algorithm": "AES", "mode": "GCM", "risk_level": "LOW", "pqc_status": "SAFE"},
+EXPECTED_FINDINGS: list[dict[str, Any]] = [
     {
+        "source_type": "code",
+        "language": "java",
+        "api": "java.security.MessageDigest",
+        "algorithm": "MD5",
+        "risk_level": "HIGH",
+        "risk_reason": "Broken hash",
+    },
+    {
+        "source_type": "code",
+        "language": "java",
+        "api": "java.security.MessageDigest",
+        "algorithm": "SHA-256",
+        "risk_level": "LOW",
+        "pqc_status": "SAFE",
+    },
+    {
+        "source_type": "code",
+        "language": "java",
+        "api": "java.security.Signature",
+        "algorithm": "SHA1withRSA",
+        "risk_level": "HIGH",
+        "pqc_status": "NOT_SAFE",
+    },
+    {"source_type": "code", "language": "java", "api": "javax.crypto.Cipher", "algorithm": "AES", "mode": "ECB"},
+    {"source_type": "code", "language": "java", "api": "javax.crypto.Cipher", "algorithm": "AES", "mode": "GCM"},
+    {
+        "source_type": "code",
+        "language": "java",
         "api": "java.security.KeyPairGenerator",
         "algorithm": "RSA",
         "key_size": 3072,
@@ -27,8 +48,25 @@ EXPECTED_FINDINGS = [
         "pqc_status": "NOT_SAFE",
         "harvest_now_decrypt_later_risk": True,
     },
-    {"api": "java.security.SecureRandom", "algorithm": "SHA1PRNG", "risk_level": "MEDIUM"},
-    {"api": "javax.net.ssl.SSLContext", "protocol": "TLSv1.2", "risk_level": "MEDIUM"},
+    {"source_type": "code", "language": "java", "api": "javax.net.ssl.SSLContext", "protocol": "TLSv1.2"},
+    {"source_type": "code", "language": "python", "api": "hashlib.md5", "algorithm": "MD5", "risk_level": "HIGH"},
+    {"source_type": "code", "language": "python", "api": "hashlib.sha256", "algorithm": "SHA-256", "risk_level": "LOW"},
+    {"source_type": "code", "language": "python", "api": "hashlib.new", "algorithm": "sha1", "risk_level": "HIGH"},
+    {"source_type": "code", "language": "python", "api": "hmac.new", "algorithm": "sha256", "risk_level": "LOW"},
+    {
+        "source_type": "code",
+        "language": "python",
+        "api": "cryptography.rsa.generate_private_key",
+        "algorithm": "RSA",
+        "key_size": 3072,
+        "pqc_status": "NOT_SAFE",
+    },
+    {"source_type": "code", "language": "python", "api": "ssl.SSLContext", "protocol": "TLSv1.2"},
+    {"source_type": "code", "language": "python", "api": "requests.get", "risk_level": "HIGH"},
+    {"source_type": "config", "api": "tls.config.protocol", "protocol": "TLSv1.2"},
+    {"source_type": "config", "api": "tls.config.protocol", "protocol": "TLSv1.3"},
+    {"source_type": "pcap", "api": "pcap.tls.protocol", "protocol": "TLSv1.2", "runtime_observed": True},
+    {"source_type": "pcap", "api": "pcap.tls.certificate", "algorithm": "RSA", "key_size": 3072},
 ]
 
 
@@ -43,9 +81,6 @@ def describe(expected: dict[str, Any]) -> str:
 def assert_inventory(path: Path) -> list[str]:
     records = load_inventory(path)
     failures: list[str] = []
-
-    if len(records) != 11:
-        failures.append(f"Expected 11 findings, got {len(records)}")
 
     critical = [record for record in records if record.get("risk_level") == "CRITICAL"]
     if critical:

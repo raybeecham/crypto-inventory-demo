@@ -1,0 +1,1 @@
+{"file":"demo/pcap/sample.pcap","frame":42,"src":"10.0.0.10","dst":"10.0.0.20","sni":"api.example.com","tls_version":"TLSv1.2","cipher":"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384","cert_public_key_algorithm":"RSA","cert_key_size":3072}

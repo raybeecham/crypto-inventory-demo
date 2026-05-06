@@ -24,6 +24,11 @@ FIELDS = [
     "risk_reason",
     "pqc_status",
     "harvest_now_decrypt_later_risk",
+    "source_type",
+    "language",
+    "runtime_observed",
+    "confidence",
+    "evidence",
 ]
 
 RISK_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
@@ -120,8 +125,9 @@ def row_to_record(row: Any) -> dict[str, Any]:
         values = row
 
     values = [scalar(value) for value in values]
-    if len(values) < len(FIELDS):
-        raise ValueError(f"Expected at least {len(FIELDS)} columns, got {len(values)}: {values!r}")
+    if len(values) < 11:
+        raise ValueError(f"Expected at least 11 columns, got {len(values)}: {values!r}")
+    values = values + [None] * (len(FIELDS) - len(values))
 
     raw = dict(zip(FIELDS, values[: len(FIELDS)]))
     return {
@@ -136,6 +142,11 @@ def row_to_record(row: Any) -> dict[str, Any]:
         "risk_reason": nullable_text(raw["risk_reason"]) or "No known weak pattern",
         "pqc_status": nullable_text(raw["pqc_status"]) or "UNKNOWN",
         "harvest_now_decrypt_later_risk": boolean_value(raw["harvest_now_decrypt_later_risk"]),
+        "source_type": nullable_text(raw["source_type"]) or "code",
+        "language": nullable_text(raw["language"]),
+        "runtime_observed": boolean_value(raw["runtime_observed"]),
+        "confidence": nullable_text(raw["confidence"]) or "HIGH",
+        "evidence": nullable_text(raw["evidence"]),
     }
 
 
@@ -150,6 +161,28 @@ def load_inventory(path: Path) -> list[dict[str, Any]]:
 
 def write_inventory(records: list[dict[str, Any]], output: Path) -> None:
     output.write_text(json.dumps(records, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+
+
+def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
+    normalized = {
+        "file": normalize_file(record.get("file")),
+        "line": nullable_int(record.get("line")),
+        "api": nullable_text(record.get("api")),
+        "algorithm": nullable_text(record.get("algorithm")),
+        "mode": nullable_text(record.get("mode")),
+        "key_size": nullable_int(record.get("key_size")),
+        "protocol": nullable_text(record.get("protocol")),
+        "risk_level": nullable_text(record.get("risk_level")) or "LOW",
+        "risk_reason": nullable_text(record.get("risk_reason")) or "No known weak pattern",
+        "pqc_status": nullable_text(record.get("pqc_status")) or "UNKNOWN",
+        "harvest_now_decrypt_later_risk": boolean_value(record.get("harvest_now_decrypt_later_risk")),
+        "source_type": nullable_text(record.get("source_type")) or "code",
+        "language": nullable_text(record.get("language")),
+        "runtime_observed": boolean_value(record.get("runtime_observed")),
+        "confidence": nullable_text(record.get("confidence")) or "HIGH",
+        "evidence": nullable_text(record.get("evidence")),
+    }
+    return normalized
 
 
 def pqc_readiness_score(records: list[dict[str, Any]]) -> int:
@@ -209,6 +242,31 @@ def convert_bqrs(args: argparse.Namespace) -> int:
     return 0
 
 
+def combine(args: argparse.Namespace) -> int:
+    records: list[dict[str, Any]] = []
+    for inventory in args.inventories:
+        records.extend(normalize_record(record) for record in load_inventory(inventory))
+
+    records.sort(
+        key=lambda record: (
+            str(record.get("source_type") or ""),
+            str(record.get("file") or ""),
+            record.get("line") or 0,
+            str(record.get("api") or ""),
+            str(record.get("algorithm") or ""),
+            str(record.get("protocol") or ""),
+        )
+    )
+    write_inventory(records, args.output)
+
+    if args.summary:
+        args.summary.write_text(build_summary(records), encoding="utf-8")
+
+    if args.fail_on_critical and any(record["risk_level"] == "CRITICAL" for record in records):
+        return 1
+    return 0
+
+
 def summarize(args: argparse.Namespace) -> int:
     records = load_inventory(args.inventory)
     summary = build_summary(records)
@@ -238,6 +296,13 @@ def build_parser() -> argparse.ArgumentParser:
     summary.add_argument("--summary", type=Path)
     summary.add_argument("--fail-on-critical", action="store_true")
     summary.set_defaults(func=summarize)
+
+    combine_parser = subparsers.add_parser("combine", help="Merge inventory JSON files")
+    combine_parser.add_argument("inventories", type=Path, nargs="+")
+    combine_parser.add_argument("--output", type=Path, default=Path("inventory.json"))
+    combine_parser.add_argument("--summary", type=Path, default=Path("summary.txt"))
+    combine_parser.add_argument("--fail-on-critical", action="store_true")
+    combine_parser.set_defaults(func=combine)
 
     return parser
 

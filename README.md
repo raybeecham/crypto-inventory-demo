@@ -1,6 +1,6 @@
 # crypto-inventory-demo
 
-CodeQL-based Java cryptographic inventory and PQC readiness pipeline.
+CodeQL-based cryptographic inventory and PQC readiness pipeline for Java, Python, TLS config, and runtime TLS observations.
 
 Outputs:
 
@@ -8,6 +8,13 @@ Outputs:
 - `summary.txt` - risk summary and PQC readiness score
 
 The GitHub Actions workflow fails when any `CRITICAL` finding is present.
+
+Inventory sources:
+
+- Java crypto API usage through CodeQL
+- Python crypto API usage through CodeQL
+- TLS protocol and cipher configuration from text config files
+- Runtime TLS observations exported from PCAP tooling as JSON/JSONL/CSV
 
 Local end-to-end run:
 

@@ -394,4 +394,9 @@ select
   riskLevel,
   riskReason,
   pqcStatus,
-  harvestNowDecryptLaterRisk
+  harvestNowDecryptLaterRisk,
+  "code",
+  "java",
+  "false",
+  "HIGH",
+  raw

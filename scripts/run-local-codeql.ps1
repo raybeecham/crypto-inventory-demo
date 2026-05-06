@@ -57,12 +57,19 @@ function Invoke-Checked {
 $codeql = Resolve-Codeql $CodeqlPath
 $codeqlHome = Split-Path -Parent $codeql
 $qlpacksDir = Join-Path $codeqlHome "qlpacks"
-$searchPath = @($qlpacksDir, $PackCache, ".\queries") -join [IO.Path]::PathSeparator
+$searchPath = @($qlpacksDir, $PackCache, ".\queries", ".\queries-python") -join [IO.Path]::PathSeparator
 
-$databasePath = Join-Path $repoRoot $DatabaseDir
+$javaDatabasePath = Join-Path $repoRoot $DatabaseDir
+$pythonDatabasePath = Join-Path $repoRoot "db-python"
 $outputPath = Join-Path $repoRoot $OutputDir
-$bqrsPath = Join-Path $outputPath "results.bqrs"
-$decodedPath = Join-Path $outputPath "codeql-results.json"
+$javaBqrsPath = Join-Path $outputPath "java-results.bqrs"
+$javaDecodedPath = Join-Path $outputPath "java-codeql-results.json"
+$javaInventoryPath = Join-Path $outputPath "inventory-java.json"
+$pythonBqrsPath = Join-Path $outputPath "python-results.bqrs"
+$pythonDecodedPath = Join-Path $outputPath "python-codeql-results.json"
+$pythonInventoryPath = Join-Path $outputPath "inventory-python.json"
+$configInventoryPath = Join-Path $outputPath "inventory-config.json"
+$pcapInventoryPath = Join-Path $outputPath "inventory-pcap.json"
 $inventoryPath = Join-Path $outputPath "inventory.json"
 $summaryPath = Join-Path $outputPath "summary.txt"
 
@@ -71,13 +78,15 @@ Invoke-Checked $codeql @("version")
 
 if (-not $SkipPackInstall) {
   Invoke-Checked $codeql @("pack", "install", ".\queries", "--no-strict-mode")
+  Invoke-Checked $codeql @("pack", "install", ".\queries-python", "--no-strict-mode")
 }
 
-Remove-WorkspacePath $databasePath
+Remove-WorkspacePath $javaDatabasePath
+Remove-WorkspacePath $pythonDatabasePath
 New-Item -ItemType Directory -Force $outputPath | Out-Null
 
 Invoke-Checked $codeql @(
-  "database", "create", $databasePath,
+  "database", "create", $javaDatabasePath,
   "--language=java",
   "--source-root", ".",
   "--command", "javac -d build demo/src/Demo.java",
@@ -86,23 +95,64 @@ Invoke-Checked $codeql @(
 
 Invoke-Checked $codeql @(
   "query", "run", ".\queries\crypto-inventory.ql",
-  "--database", $databasePath,
+  "--database", $javaDatabasePath,
   "--search-path", $searchPath,
   "--additional-packs", ".\queries",
-  "--output", $bqrsPath
+  "--output", $javaBqrsPath
 )
 
 Invoke-Checked $codeql @(
   "bqrs", "decode",
   "--format=json",
   "--entities=string",
-  "--output", $decodedPath,
+  "--output", $javaDecodedPath,
   "--",
-  $bqrsPath
+  $javaBqrsPath
 )
 
 Invoke-Checked "python" @(
-  "scripts\cbom.py", "from-bqrs-json", $decodedPath,
+  "scripts\cbom.py", "from-bqrs-json", $javaDecodedPath,
+  "--output", $javaInventoryPath
+)
+
+Invoke-Checked $codeql @(
+  "database", "create", $pythonDatabasePath,
+  "--language=python",
+  "--source-root", ".",
+  "--overwrite"
+)
+
+Invoke-Checked $codeql @(
+  "query", "run", ".\queries-python\python-crypto-inventory.ql",
+  "--database", $pythonDatabasePath,
+  "--search-path", $searchPath,
+  "--additional-packs", ".\queries-python",
+  "--output", $pythonBqrsPath
+)
+
+Invoke-Checked $codeql @(
+  "bqrs", "decode",
+  "--format=json",
+  "--entities=string",
+  "--output", $pythonDecodedPath,
+  "--",
+  $pythonBqrsPath
+)
+
+Invoke-Checked "python" @(
+  "scripts\cbom.py", "from-bqrs-json", $pythonDecodedPath,
+  "--output", $pythonInventoryPath
+)
+
+Invoke-Checked "python" @("scripts\scan_tls_config.py", ".", "--output", $configInventoryPath)
+Invoke-Checked "python" @("scripts\scan_pcap.py", "demo\pcap", "--output", $pcapInventoryPath)
+
+Invoke-Checked "python" @(
+  "scripts\cbom.py", "combine",
+  $javaInventoryPath,
+  $pythonInventoryPath,
+  $configInventoryPath,
+  $pcapInventoryPath,
   "--output", $inventoryPath,
   "--summary", $summaryPath
 )

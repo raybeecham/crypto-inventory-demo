@@ -208,8 +208,13 @@ __marimo__/
 
 # CodeQL / CBOM local outputs
 db-java/
+db-python/
 out/
 results.bqrs
+*-results.bqrs
 codeql-results.json
+*-codeql-results.json
 inventory.json
+inventory-*.json
 summary.txt
+summary-*.txt
