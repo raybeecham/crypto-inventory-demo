@@ -205,3 +205,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# CodeQL / CBOM local outputs
+db-java/
+out/
+results.bqrs
+codeql-results.json
+inventory.json
+summary.txt

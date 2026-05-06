@@ -9,6 +9,12 @@ Outputs:
 
 The GitHub Actions workflow fails when any `CRITICAL` finding is present.
 
+Local end-to-end run:
+
+```powershell
+.\scripts\run-local-codeql.ps1 -CodeqlPath C:\Tools\CodeQL\codeql\codeql.exe
+```
+
 Local summary example:
 
 ```bash
