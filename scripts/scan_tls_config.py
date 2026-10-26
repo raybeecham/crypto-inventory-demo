@@ -14,7 +14,9 @@ CONFIG_SUFFIXES = {".conf", ".cnf", ".cfg", ".ini", ".properties", ".yaml", ".ym
 SKIP_DIRS = {".git", "build", "db-java", "db-python", "out", "__pycache__"}
 
 TLS_PATTERN = re.compile(r"\b(?:SSLv2|SSLv3|TLSv1(?:\.0|\.1|\.2|\.3)?)\b", re.IGNORECASE)
-CIPHER_PATTERN = re.compile(r"\b(?:RC4|3DES|DES|ECDHE-RSA|RSA|AES(?:128|256)?-GCM|TLS_AES_\d+_GCM_SHA\d+)\b", re.IGNORECASE)
+# Case-sensitive: cipher suite names are uppercase in TLS configs, and ignoring case
+# matched ordinary words (for example French "des").
+CIPHER_PATTERN = re.compile(r"\b(?:RC4|3DES|DES|ECDHE-RSA|RSA|AES(?:128|256)?-GCM|TLS_AES_\d+_GCM_SHA\d+)\b")
 
 
 def normalize_protocol(value: str) -> str:
